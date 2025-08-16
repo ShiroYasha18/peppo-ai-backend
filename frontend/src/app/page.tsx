@@ -6,7 +6,6 @@ import ApiKeyInput from '@/components/ApiKeyInput'
 import PromptInput from '@/components/PromptInput'
 import ParameterSliders from '@/components/ParameterSliders'
 import VideoGenerator from '@/components/VideoGenerator'
-import ThemeToggle from '@/components/ThemeToggle'
 import { Sparkles, Video } from 'lucide-react'
 
 export default function Home() {
@@ -31,11 +30,6 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-amber-50 dark:from-gray-900 dark:via-black dark:to-gray-800">
-      {/* Theme Toggle - Fixed position in top right */}
-      <div className="fixed top-4 right-4 z-50">
-        <ThemeToggle />
-      </div>
-      
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         {/* Header */}
         <div className="text-center mb-12">
