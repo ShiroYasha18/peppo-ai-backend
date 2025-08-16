@@ -5,7 +5,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     
     // Proxy the request to our FastAPI backend
-    const backendUrl = process.env.BACKEND_URL || 'http://localhost:8000'
+    const backendUrl = process.env.BACKEND_URL || 'https://peppo-ai-backend-1.onrender.com'
     
     const response = await fetch(`${backendUrl}/generate`, {
       method: 'POST',
