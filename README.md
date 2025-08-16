@@ -6,7 +6,8 @@
 
 ### Video Demo
 
-**[📹 Watch Demo Video](./demovid.mov)**
+![Demo](./demovid.gif)
+
 
 *Click the link above to download and view the demo video showing Peppo AI in action!*
 
