@@ -27,7 +27,7 @@ export default function ParameterSliders({ params, setParams }: ParameterSliders
           value={[params.fps]}
           onValueChange={(value) => updateParam('fps', value[0])}
           max={60}
-          min={12}
+          min={24}
           step={1}
           className="w-full"
         />
@@ -41,8 +41,8 @@ export default function ParameterSliders({ params, setParams }: ParameterSliders
         <Slider
           value={[params.duration]}
           onValueChange={(value) => updateParam('duration', value[0])}
-          max={30}
-          min={1}
+          max={10}
+          min={5}
           step={1}
           className="w-full"
         />
