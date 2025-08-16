@@ -6,7 +6,7 @@ import ApiKeyInput from '@/components/ApiKeyInput'
 import PromptInput from '@/components/PromptInput'
 import ParameterSliders from '@/components/ParameterSliders'
 import VideoGenerator from '@/components/VideoGenerator'
-import ThemeToggle from '../components/ThemeToggle'
+import ThemeToggle from '@/components/ThemeToggle'
 import { Sparkles, Video } from 'lucide-react'
 
 export default function Home() {
