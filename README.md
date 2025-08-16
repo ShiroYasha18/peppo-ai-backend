@@ -6,7 +6,11 @@
 
 ### Video Demo
 
-![Demo](./demovid.gif)
+
+
+
+https://github.com/user-attachments/assets/39f7e162-fe71-49dc-b7b9-292a7656852c
+
 
 
 *Click the link above to download and view the demo video showing Peppo AI in action!*
