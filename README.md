@@ -362,7 +362,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **Ayraf** - *Full Stack Developer*
 
-- GitHub: [@ayrafraihan](https://github.com/ayrafraihan)
+- GitHub: [@ayrafraihan](https://github.com/ShiroYasha18)
 - Made with ❤️ and lots of ☕
 
 ---
