@@ -11,7 +11,7 @@
 *Click the link above to download and view the demo video showing Peppo AI in action!*
 
 > **Note**: The demo video is in `.mov` format. For better web compatibility, consider converting to `.mp4` or `.gif` format, or upload to a video hosting service like YouTube or Vimeo for embedded preview.
-
+[🚀 Live Demo](https://peppo-ai-frontendd.onrender.com/) • 
 ## Overview
 
 Peppo AI is a modern full-stack web application that leverages Replicate's AI models to generate videos from text prompts. Built with a sleek orange and black design, it provides an intuitive interface for creating AI-powered videos with customizable parameters using the ByteDance SeedANCE-1-Lite model.
@@ -46,10 +46,30 @@ Peppo AI is a modern full-stack web application that leverages Replicate's AI mo
 ### AI Model
 - **ByteDance SeedANCE-1-Lite** - Advanced video generation model via Replicate
 
-## Project Structure
-peppo/ ├── frontend/ # Next.js frontend application │ ├── src/ │ │ ├── app/ # App Router pages │ │ │ ├── page.tsx # Main application page │ │ │ ├── layout.tsx # Root layout │ │ │ └── api/ # API routes │ │ ├── components/ # Reusable UI components │ │ │ ├── ApiKeyInput.tsx │ │ │ ├── PromptInput.tsx │ │ │ ├── ParameterSliders.tsx │ │ │ ├── VideoGenerator.tsx │ │ │ └── ClientWrapper.tsx │ │ ├── contexts/ # React contexts │ │ │ └── ThemeContext.tsx │ │ ├── lib/ # Utility functions │ │ └── types/ # TypeScript type definitions │ ├── package.json │ └── tsconfig.json ├── backend/ # FastAPI backend │ ├── main.py # Main application file │ ├── requirements.txt # Python dependencies │ └── .env # Environment variables (not in repo) ├── demovid.mov # Demo video ├── render.yaml # Render deployment config └── README.md # This file
+## Quick Start
 
+### 🚀 One-Command Setup
 
+```bash
+# Clone and setup the entire project
+git clone <your-repo-url>
+cd peppo
+
+# Setup backend
+cd backend
+pip install -r requirements.txt
+echo "REPLICATE_API_TOKEN=your_token_here" > .env
+uvicorn main:app --reload --port 8000 &
+
+# Setup frontend
+cd ../frontend
+npm install
+npm run dev
+```
+
+Then open [http://localhost:3000](http://localhost:3000) in your browser!
+
+## API Endpoints
 
 ### POST /generate
 Generate a video from a text prompt with custom parameters.
@@ -103,17 +123,17 @@ Health check endpoint.
 }
 ```
 
-## Getting Started
+## Environment Setup
 
 ### Prerequisites
 
-- Node.js 18+ and npm
-- Python 3.8+
-- Replicate API token (get one at [replicate.com](https://replicate.com))
+- **Node.js 18+** and npm
+- **Python 3.8+**
+- **Replicate API token** (get one at [replicate.com](https://replicate.com))
 
-### Environment Setup
+### Backend Configuration
 
-1. Create a `.env` file in the backend directory:
+1. Create environment file:
    ```bash
    cd backend
    touch .env
@@ -121,159 +141,223 @@ Health check endpoint.
 
 2. Add your Replicate API token:
    ```env
-   REPLICATE_API_TOKEN=your_replicate_token_here
+   REPLICATE_API_TOKEN=r8_your_actual_token_here
    ```
 
-### Frontend Setup
+### Frontend Configuration
 
-1. Navigate to the frontend directory:
+1. Install dependencies:
    ```bash
    cd frontend
-   ```
-
-2. Install dependencies:
-   ```bash
    npm install
    ```
 
-3. Start the development server:
+2. (Optional) Set backend URL:
    ```bash
-   npm run dev
+   echo "BACKEND_URL=http://localhost:8000" > .env.local
    ```
 
-4. Open [http://localhost:3000](http://localhost:3000) in your browser
+## Usage Guide
 
-### Backend Setup
+### Step-by-Step Video Generation
 
-1. Navigate to the backend directory:
-   ```bash
-   cd backend
-   ```
+1. **🔑 API Key Setup**
+   - Enter your Replicate API key in the secure input field
+   - The key is stored locally and validated automatically
 
-2. Install Python dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
+2. **✍️ Write Your Prompt**
+   - Describe the video you want to create
+   - Minimum 3 characters required
+   - Be descriptive for better results!
 
-3. Start the FastAPI server:
-   ```bash
-   uvicorn main:app --reload --port 8000
-   ```
-
-4. The API will be available at [http://localhost:8000](http://localhost:8000)
-
-## Usage
-
-1. **Enter API Key**: Input your Replicate API key in the secure field (optional if set in backend .env)
-2. **Write Your Prompt**: Describe the video you want to create (minimum 3 characters)
-3. **Adjust Parameters**: 
+3. **⚙️ Customize Parameters**
    - **FPS**: Frame rate (default: 24)
-   - **Duration**: Video length in seconds (1-10, default: 5)
-   - **Resolution**: Video quality (720p/1080p, default: 720p)
-   - **Aspect Ratio**: Video dimensions (16:9/9:16/1:1, default: 16:9)
-   - **Camera Fixed**: Whether camera should be stationary (default: false)
-4. **Generate Video**: Click the generate button and watch the magic happen
-5. **Download**: Save your generated video to your device
+   - **Duration**: Video length 1-10 seconds (default: 5)
+   - **Resolution**: 720p or 1080p (default: 720p)
+   - **Aspect Ratio**: 16:9, 9:16, or 1:1 (default: 16:9)
+   - **Camera Fixed**: Stationary vs. moving camera (default: moving)
 
-## Components
+4. **🎬 Generate & Download**
+   - Click "Generate Video" and wait for the magic
+   - Preview your video in the built-in player
+   - Download directly to your device
+
+### Example Prompts
+
+- "A serene sunset over a calm ocean with gentle waves"
+- "A bustling city street at night with neon lights"
+- "A cute cat playing with a ball of yarn in slow motion"
+- "Abstract colorful particles floating in space"
+
+## Components Architecture
 
 ### Core Components
 - **ApiKeyInput** - Secure API key management with validation and visibility toggle
-- **PromptInput** - Text area for video prompts with character counting and validation
-- **ParameterSliders** - Interactive controls for FPS, duration, resolution, aspect ratio, and camera settings
-- **VideoGenerator** - Main generation interface with progress tracking and video preview
-- **ClientWrapper** - Theme provider wrapper for dark/light mode support
+- **PromptInput** - Text area with character counting and validation
+- **ParameterSliders** - Interactive controls for all video parameters
+- **VideoGenerator** - Main generation interface with progress tracking
+- **ClientWrapper** - Theme provider for consistent styling
 
 ### UI Features
-- **Gradient Backgrounds** - Beautiful orange-to-amber gradients
 - **Glass Morphism** - Modern frosted glass effects with backdrop blur
-- **Responsive Grid** - Adaptive layout for all screen sizes
-- **Loading States** - Smooth animations and progress indicators during processing
-- **Error Handling** - Comprehensive error messages and validation
+- **Gradient Backgrounds** - Beautiful orange-to-amber gradients
+- **Responsive Design** - Mobile-first approach with adaptive layouts
+- **Loading States** - Smooth animations and progress indicators
+- **Error Handling** - User-friendly error messages and validation
 
 ## Deployment
 
-The application is configured for deployment on Render.com:
+### Render.com Deployment
 
-### Backend Deployment
-- **Service Type**: Web Service
-- **Environment**: Python
-- **Build Command**: `cd backend && pip install -r requirements.txt`
-- **Start Command**: `cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT`
-- **Environment Variables**: `REPLICATE_API_TOKEN` (set in Render dashboard)
+The project is pre-configured for Render.com deployment:
 
-### Frontend Deployment
-- Deploy as a static site or web service
-- Set `BACKEND_URL` environment variable to your deployed backend URL
+#### Backend Service
+```yaml
+services:
+  - type: web
+    name: peppo-ai-backend
+    env: python
+    buildCommand: "cd backend && pip install -r requirements.txt"
+    startCommand: "cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: REPLICATE_API_TOKEN
+        sync: false
+```
+
+#### Frontend Service
+- Deploy as a static site
 - Build command: `cd frontend && npm install && npm run build`
+- Publish directory: `frontend/out` or `frontend/.next`
 
-### Configuration Files
-- `render.yaml` - Render deployment configuration
-- `frontend/next.config.js` - Next.js configuration
-- `frontend/tsconfig.json` - TypeScript configuration
+### Environment Variables
 
-## Environment Variables
+#### Backend
+- `REPLICATE_API_TOKEN` - Your Replicate API token (**required**)
+- `PORT` - Server port (auto-set by Render)
 
-### Backend
-- `REPLICATE_API_TOKEN` - Your Replicate API token (required)
-- `PORT` - Server port (automatically set by Render)
+#### Frontend
+- `BACKEND_URL` - Backend API URL (defaults to localhost:8000)
 
-### Frontend
-- `BACKEND_URL` - Backend API URL (defaults to http://localhost:8000)
-- `NEXT_PUBLIC_*` - Any public environment variables
+## Troubleshooting
 
-## Error Handling
+### Common Issues & Solutions
 
-The application includes comprehensive error handling:
+#### 🔴 "REPLICATE_API_TOKEN not found"
+**Solution:**
+```bash
+# Check your .env file exists and has the correct token
+cd backend
+cat .env
+# Should show: REPLICATE_API_TOKEN=r8_your_token_here
+```
 
-- **Prompt Validation**: Minimum 3 characters required
-- **API Key Validation**: Secure storage and validation
-- **Network Errors**: Graceful handling of connection issues
-- **Generation Failures**: Clear error messages for failed video generation
-- **File Download Errors**: Proper error handling for download failures
+#### 🔴 CORS Errors
+**Solution:**
+- Ensure both frontend (port 3000) and backend (port 8000) are running
+- Check that BACKEND_URL points to the correct backend URL
+
+#### 🔴 Video Generation Fails
+**Solutions:**
+- Verify your Replicate API token has sufficient credits
+- Check prompt meets minimum 3-character requirement
+- Try simpler prompts if complex ones fail
+
+#### 🔴 Build/Deployment Errors
+**Solutions:**
+```bash
+# Clear caches and reinstall
+cd frontend
+rm -rf node_modules package-lock.json .next
+npm install
+npm run build
+
+# For backend
+cd backend
+pip install --upgrade -r requirements.txt
+```
 
 ## Dependencies
 
 ### Backend Dependencies
+```txt
+fastapi==0.104.1          # Modern web framework
+uvicorn[standard]==0.24.0 # ASGI server with performance extras
+replicate==0.22.0         # AI model integration
+python-multipart==0.0.6   # Form data handling
+python-dotenv==1.0.0      # Environment variable management
+requests==2.31.0          # HTTP client for file downloads
+```
+
+### Frontend Dependencies
+- **Next.js 14** - Latest React framework with App Router
+- **TypeScript** - Type safety and better developer experience
+- **Tailwind CSS** - Utility-first CSS framework
+- **Lucide React** - Beautiful, customizable icons
+
 ## Contributing
 
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/amazing-feature`
-3. Commit your changes: `git commit -m 'Add amazing feature'`
-4. Push to the branch: `git push origin feature/amazing-feature`
-5. Open a Pull Request
+### Development Workflow
+
+1. **Fork & Clone**
+   ```bash
+   git clone <your-fork-url>
+   cd peppo
+   ```
+
+2. **Create Feature Branch**
+   ```bash
+   git checkout -b feature/amazing-feature
+   ```
+
+3. **Make Changes**
+   - Follow existing code style
+   - Add tests if applicable
+   - Update documentation
+
+4. **Test Locally**
+   ```bash
+   # Test backend
+   cd backend && python -m pytest
+   
+   # Test frontend
+   cd frontend && npm run build
+   ```
+
+5. **Submit PR**
+   ```bash
+   git commit -m 'Add amazing feature'
+   git push origin feature/amazing-feature
+   ```
+
+### Code Style
+- **Backend**: Follow PEP 8 Python style guide
+- **Frontend**: Use Prettier and ESLint configurations
+- **Commits**: Use conventional commit messages
 
 ## License
 
-This project is licensed under the MIT License.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## Troubleshooting
+## Support
 
-### Common Issues
+- 📧 **Email**: [your-email@example.com]
+- 🐛 **Issues**: [GitHub Issues](https://github.com/your-username/peppo/issues)
+- 💬 **Discussions**: [GitHub Discussions](https://github.com/your-username/peppo/discussions)
 
-1. **"REPLICATE_API_TOKEN not found"**
-   - Ensure your `.env` file is in the backend directory
-   - Check that your API token is valid
+## Roadmap
 
-2. **CORS Errors**
-   - The backend is configured to allow all origins
-   - Check that both frontend and backend are running
-
-3. **Video Generation Fails**
-   - Verify your Replicate API token has sufficient credits
-   - Check that your prompt meets the minimum requirements
-
-4. **Build Errors**
-   - Ensure all dependencies are installed
-   - Check Node.js and Python versions
+- [ ] Add more AI models (Stable Video Diffusion, etc.)
+- [ ] Implement user authentication and video history
+- [ ] Add batch video generation
+- [ ] Support for longer video durations
+- [ ] Video editing capabilities
+- [ ] Social sharing features
 
 ## Author
 
-**Ayraf** - Made with ❤️
+**Ayraf** - *Full Stack Developer*
+
+- GitHub: [@ayrafraihan](https://github.com/ayrafraihan)
+- Made with ❤️ and lots of ☕
 
 ---
-
-*Peppo AI - Where creativity meets artificial intelligence!*
-
-**Live Demo**: [Your deployed URL here]
-**API Documentation**: [Your backend URL]/docs (FastAPI auto-generated docs)
