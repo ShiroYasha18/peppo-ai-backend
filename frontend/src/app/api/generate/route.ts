@@ -16,8 +16,20 @@ export async function POST(request: NextRequest) {
     })
 
     if (!response.ok) {
-      const errorData = await response.json()
-      return NextResponse.json(errorData, { status: response.status })
+      // Check if response is JSON before parsing
+      const contentType = response.headers.get('content-type')
+      if (contentType && contentType.includes('application/json')) {
+        const errorData = await response.json()
+        return NextResponse.json(errorData, { status: response.status })
+      } else {
+        // Handle non-JSON error responses (like HTML error pages)
+        const errorText = await response.text()
+        console.error('Backend returned non-JSON error:', errorText)
+        return NextResponse.json(
+          { detail: `Backend error: ${response.status} ${response.statusText}` },
+          { status: response.status }
+        )
+      }
     }
 
     const data = await response.json()
