@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
     }
     
     // Backend URL configuration
-    const backendUrl = process.env.BACKEND_URL || 'https://peppo-ai-backend-1.onrender.com'
+    const backendUrl = 'https://peppo-ai-backend-1.onrender.com'
     console.log('Using backend URL:', backendUrl)
     
     // Make request to backend
