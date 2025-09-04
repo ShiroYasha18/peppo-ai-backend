@@ -78,30 +78,36 @@ conversation_state = {}
 async def send_whatsapp_message(to: str, message: str):
     """Send a WhatsApp message via Twilio"""
     try:
-        message = twilio_client.messages.create(
+        # Ensure the phone number format is correct
+        if not to.startswith('+'):
+            to = f'+{to}'
+            
+        message_obj = twilio_client.messages.create(
             body=message,
             from_='whatsapp:+14155238886',  # Twilio sandbox number
             to=f'whatsapp:{to}'
         )
-        logger.info(f"Message sent to {to}: {message.sid}")
+        logger.info(f"Message sent successfully to {to}: {message_obj.sid}")
+        return True
     except Exception as e:
-        logger.error(f"Failed to send WhatsApp message: {e}")
+        logger.error(f"Failed to send WhatsApp message to {to}: {str(e)}")
+        return False
 
 @app.post("/whatsapp")
 async def whatsapp_webhook(request: Request):
     """Handle incoming WhatsApp messages from Twilio"""
-    form_data = await request.form()
-    
-    # Extract message details
-    from_number = form_data.get('From', '').replace('whatsapp:', '')
-    message_body = form_data.get('Body', '').strip()
-    
-    logger.info(f"Received message from {from_number}: {message_body}")
-    
-    # Create TwiML response
-    resp = MessagingResponse()
-    
     try:
+        form_data = await request.form()
+        
+        # Extract message details
+        from_number = form_data.get('From', '').replace('whatsapp:', '')
+        message_body = form_data.get('Body', '').strip()
+        
+        logger.info(f"Received message from {from_number}: {message_body}")
+        
+        # Create TwiML response
+        resp = MessagingResponse()
+        
         # Handle different conversation states
         user_state = conversation_state.get(from_number, {'stage': 'initial'})
         
@@ -114,6 +120,9 @@ async def whatsapp_webhook(request: Request):
             resp.message(welcome_msg)
             conversation_state[from_number] = {'stage': 'waiting_for_prompt'}
             
+            # Also send via Twilio API (backup method)
+            await send_whatsapp_message(from_number, welcome_msg)
+            
         elif len(message_body) < 10:
             # Prompt too short
             error_msg = ("🤔 That prompt is too short!\n\n"
@@ -124,13 +133,18 @@ async def whatsapp_webhook(request: Request):
                         "Please send a longer, more detailed prompt! 📝")
             resp.message(error_msg)
             
+            # Also send via Twilio API (backup method)
+            await send_whatsapp_message(from_number, error_msg)
+            
         else:
             # Process video generation request
-            # Acknowledge and start generation
             ack_msg = ("🎬 Got it! Generating your video...\n\n"
                       f"Prompt: '{message_body}'\n\n"
                       "This usually takes 2-3 minutes. I'll send you the video when it's ready! ⏳")
             resp.message(ack_msg)
+            
+            # Also send via Twilio API (backup method)
+            await send_whatsapp_message(from_number, ack_msg)
             
             # Update conversation state
             conversation_state[from_number] = {
@@ -143,6 +157,7 @@ async def whatsapp_webhook(request: Request):
                 
     except Exception as e:
         logger.error(f"Error processing WhatsApp message: {e}")
+        resp = MessagingResponse()
         error_msg = ("😅 Oops! Something went wrong on my end.\n\n"
                     "Please try again in a moment, or contact support if the issue persists.")
         resp.message(error_msg)
