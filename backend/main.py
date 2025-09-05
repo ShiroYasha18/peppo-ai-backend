@@ -809,7 +809,7 @@ async def whatsapp_webhook(request: Request):
         # Always return valid TwiML even on error
         resp = MessagingResponse()
         return Response(content=str(resp), media_type="application/xml")
-// ... existing code ...
+
 from fastapi.staticfiles import StaticFiles
 
 # Add this after your app initialization
