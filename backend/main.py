@@ -983,20 +983,18 @@ async def handle_video_generation(phone_number: str, prompt: str):
         prefs = user_preferences.get(phone_number, DEFAULT_SETTINGS)
         logger.info(f"📐 Using settings: {prefs}")
         
-        # Generate video using Replicate
+        # Generate video using Replicate - bytedance/seedance-1-pro supports all parameters
         replicate_input = {
             "prompt": prompt,
-            "prompt_optimizer": True,
+            "duration": prefs['duration'],
+            "resolution": prefs['resolution'], 
             "aspect_ratio": prefs['aspect_ratio'],
-            "fps": prefs['fps']
+            "fps": prefs['fps'],
+            "camera_fixed": False
         }
         
-        # Add duration if supported
-        if 'duration' in prefs:
-            replicate_input['duration'] = prefs['duration']
-        
         logger.info(f"🔄 Calling Replicate with: {replicate_input}")
-        output = replicate.run("minimax/video-01", input=replicate_input)
+        output = replicate.run("bytedance/seedance-1-pro", input=replicate_input)
         
         if output and len(output) > 0:
             video_url = output[0]
