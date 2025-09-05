@@ -102,6 +102,10 @@ def parse_settings_command(message: str):
         duration_val = int(setting_value)
         if duration_val in [3, 5, 10]:
             return {'duration': duration_val}
+    elif setting_type == 'time' and setting_value.isdigit():  # Add 'time' as alias for duration
+        duration_val = int(setting_value)
+        if duration_val in [3, 5, 10]:
+            return {'duration': duration_val}
     
     return None
 
@@ -217,120 +221,63 @@ async def send_whatsapp_message(to: str, message: str, media_url: str = None):
         }
         
         if media_url:
-            message_params['media_url'] = [media_url]
+            logger.info(f"Attempting to send video URL: {media_url}")
+            
+            # Validate media URL before sending
+            try:
+                # Check if URL is accessible
+                response = requests.head(media_url, timeout=10, allow_redirects=True)
+                logger.info(f"URL response status: {response.status_code}")
+                logger.info(f"URL response headers: {dict(response.headers)}")
+                
+                if response.status_code == 200:
+                    content_type = response.headers.get('content-type', '')
+                    content_length = response.headers.get('content-length', 'unknown')
+                    
+                    logger.info(f"Content-Type: {content_type}")
+                    logger.info(f"Content-Length: {content_length} bytes")
+                    
+                    if content_type.startswith('video/') or 'video' in content_type.lower():
+                        # Check file size (WhatsApp limit is 16MB)
+                        if content_length != 'unknown':
+                            size_mb = int(content_length) / (1024 * 1024)
+                            logger.info(f"Video size: {size_mb:.2f} MB")
+                            
+                            if size_mb > 16:
+                                logger.warning(f"Video too large: {size_mb:.2f} MB > 16 MB limit")
+                                return False
+                        
+                        message_params['media_url'] = [media_url]
+                        logger.info(f"✅ Video validated successfully - sending to WhatsApp")
+                    else:
+                        logger.error(f"❌ Invalid content type for video: {content_type}")
+                        return False
+                else:
+                    logger.error(f"❌ Media URL not accessible: HTTP {response.status_code}")
+                    return False
+                    
+            except requests.exceptions.RequestException as e:
+                logger.error(f"❌ Failed to validate media URL: {e}")
+                return False
         
         message = twilio_client.messages.create(**message_params)
-        logger.info(f"Message sent to {to}: {message.sid}")
+        logger.info(f"✅ Message sent successfully to {to}: {message.sid}")
         return True
+        
     except Exception as e:
-        logger.error(f"Failed to send WhatsApp message to {to}: {e}")
+        logger.error(f"❌ Failed to send WhatsApp message to {to}: {e}")
         return False
 
-@app.post("/whatsapp")
-async def whatsapp_webhook(request: Request):
-    """Handle incoming WhatsApp messages from Twilio (enhanced)"""
+async def upload_file_to_temp_server(file_path: str):
+    """Upload compressed video to a temporary file server for Twilio access"""
     try:
-        form_data = await request.form()
-        
-        # Extract message details
-        from_number = form_data.get('From', '').replace('whatsapp:', '')
-        message_body = form_data.get('Body', '').strip()
-        
-        logger.info(f"Received message from {from_number}: {message_body}")
-        
-        # Initialize user state if not exists
-        if from_number not in conversation_state:
-            conversation_state[from_number] = {'stage': 'initial'}
-        if from_number not in user_preferences:
-            user_preferences[from_number] = DEFAULT_SETTINGS.copy()
-        
-        current_state = conversation_state[from_number]
-        
-        # Handle settings commands
-        if message_body.lower().startswith('/settings'):
-            if message_body.lower() == '/settings':
-                prefs = user_preferences[from_number]
-                settings_msg = ("⚙️ **Your Current Video Settings:**\n\n"
-                              f"📐 Aspect Ratio: {prefs['aspect_ratio']}\n"
-                              f"🎥 Resolution: {prefs['resolution']}\n"
-                              f"⚡ FPS: {prefs['fps']}\n"
-                              f"⏱️ Duration: {prefs['duration']} seconds\n\n"
-                              "**To change settings, use:**\n"
-                              "• `/settings ratio 16:9` (16:9, 9:16, 1:1, 4:3)\n"
-                              "• `/settings resolution 720p` (480p, 720p, 1080p)\n"
-                              "• `/settings fps 30` (24, 30, 60)\n"
-                              "• `/settings duration 10` (3, 5, 10)")
-                await send_whatsapp_message(from_number, settings_msg)
-            else:
-                new_setting = parse_settings_command(message_body)
-                if new_setting:
-                    user_preferences[from_number].update(new_setting)
-                    setting_name = list(new_setting.keys())[0]
-                    setting_value = new_setting[setting_name]
-                    await send_whatsapp_message(from_number, f"✅ Updated {setting_name} to {setting_value}")
-                else:
-                    await send_whatsapp_message(from_number, "❌ Invalid setting. Use `/settings` to see available options.")
-            
-            return MessagingResponse()
-        
-        # Handle help command
-        if message_body.lower() in ['/help', 'help']:
-            help_msg = ("🤖 **Peppo AI Video Bot Help**\n\n"
-                       "**Commands:**\n"
-                       "• Send any text to generate a video\n"
-                       "• `/settings` - View/change video settings\n"
-                       "• `/help` - Show this help message\n\n"
-                       "**Video Settings:**\n"
-                       "• Aspect ratios: 16:9, 9:16, 1:1, 4:3\n"
-                       "• Resolutions: 480p, 720p, 1080p\n"
-                       "• FPS: 24, 30, 60\n"
-                       "• Duration: 3, 5, 10 seconds\n\n"
-                       "Just send me a description and I'll create a video for you! 🎬")
-            await send_whatsapp_message(from_number, help_msg)
-            return MessagingResponse()
-        
-        # Check if user is in video generation process
-        if current_state.get('stage') == 'generating':
-            await send_whatsapp_message(from_number, "🎬 I'm still working on your previous video! Please wait a moment...")
-            return MessagingResponse()
-        
-        # Handle regular messages (video generation requests)
-        if len(message_body) < 10:
-            await send_whatsapp_message(from_number, 
-                "📝 Please provide a more detailed description (at least 10 characters) for better video generation!\n\n"
-                "Example: 'A cat playing with a ball in a sunny garden'")
-            return MessagingResponse()
-        
-        # Content moderation
-        is_appropriate, moderation_msg = await moderate_content(message_body)
-        if not is_appropriate:
-            await send_whatsapp_message(from_number, 
-                f"🚫 Sorry, I can't generate a video for that content.\n\n"
-                f"Reason: {moderation_msg}\n\n"
-                "Please try with a different, appropriate description.")
-            return MessagingResponse()
-        
-        # Start video generation
-        conversation_state[from_number] = {'stage': 'generating'}
-        
-        # Send acknowledgment
-        prefs = user_preferences[from_number]
-        ack_msg = (f"🎬 **Creating your video!**\n\n"
-                  f"📝 Prompt: '{message_body}'\n"
-                  f"📐 Ratio: {prefs['aspect_ratio']}\n"
-                  f"🎥 Resolution: {prefs['resolution']}\n\n"
-                  "⏳ This usually takes 1-2 minutes. I'll send it to you when ready!")
-        
-        await send_whatsapp_message(from_number, ack_msg)
-        
-        # Start video generation in background
-        asyncio.create_task(generate_video_for_whatsapp(from_number, message_body))
-        
-        return MessagingResponse()
-        
+        # For now, we'll use the original video URL since we need a file hosting solution
+        # In production, you'd upload to AWS S3, Google Cloud Storage, etc.
+        logger.info(f"Would upload {file_path} to file server")
+        return None  # Return None to use original URL
     except Exception as e:
-        logger.error(f"WhatsApp webhook error: {e}")
-        return MessagingResponse()
+        logger.error(f"Failed to upload file: {e}")
+        return None
 
 async def generate_video_for_whatsapp(phone_number: str, prompt: str):
     """Generate video and send to WhatsApp user"""
@@ -340,35 +287,83 @@ async def generate_video_for_whatsapp(phone_number: str, prompt: str):
         # Get user preferences
         prefs = user_preferences.get(phone_number, DEFAULT_SETTINGS)
         
-        # Generate video using user preferences
+        # Generate video using user preferences (including duration)
+        replicate_input = {
+            "prompt": prompt,
+            "prompt_optimizer": True,
+            "aspect_ratio": prefs['aspect_ratio'],
+            "fps": prefs['fps']
+        }
+        
+        # Add duration if supported by the model
+        if 'duration' in prefs:
+            replicate_input['duration'] = prefs['duration']
+        
         output = replicate.run(
             "minimax/video-01",
-            input={
-                "prompt": prompt,
-                "prompt_optimizer": True,
-                "aspect_ratio": prefs['aspect_ratio'],
-                "fps": prefs['fps']
-            }
+            input=replicate_input
         )
         
         if output and len(output) > 0:
             video_url = output[0]
+            logger.info(f"🎬 Generated video URL: {video_url}")
             
-            # Compress video to ensure it's under 16MB (placeholder for now)
+            # Validate the generated video URL immediately
+            try:
+                response = requests.head(video_url, timeout=10)
+                if response.status_code == 200:
+                    content_type = response.headers.get('content-type', '')
+                    content_length = response.headers.get('content-length', 'unknown')
+                    logger.info(f"✅ Original video validated: {content_type}, {content_length} bytes")
+                else:
+                    logger.error(f"❌ Generated video URL not accessible: {response.status_code}")
+            except Exception as e:
+                logger.error(f"❌ Failed to validate generated video: {e}")
+            
+            # Compress video to ensure it's under 16MB
             compressed_video_path = await compress_video(video_url, max_size_mb=15)
+            
+            # Try to upload compressed video to accessible URL
+            final_video_url = video_url  # Default to original
+            
+            if compressed_video_path and compressed_video_path != video_url:
+                # Upload compressed file to temporary server
+                uploaded_url = await upload_file_to_temp_server(compressed_video_path)
+                if uploaded_url:
+                    final_video_url = uploaded_url
+                else:
+                    # If upload fails, use original URL but log the issue
+                    logger.warning("Using original video URL - compression upload failed")
+                
+                # Clean up local compressed file
+                try:
+                    if os.path.exists(compressed_video_path):
+                        os.unlink(compressed_video_path)
+                except:
+                    pass
             
             # Send success message with video
             success_msg = ("🎉 **Your video is ready!**\n\n"
                           f"📝 Prompt: '{prompt}'\n"
-                          f"📐 Settings: {prefs['aspect_ratio']}, {prefs['resolution']}, {prefs['fps']}fps\n\n"
+                          f"📐 Settings: {prefs['aspect_ratio']}, {prefs['resolution']}, {prefs['fps']}fps, {prefs['duration']}s\n\n"
                           "Want to create another video? Just send me a new prompt! ✨")
             
-            await send_whatsapp_message(phone_number, success_msg, media_url=video_url)
+            # Send video with proper error handling
+            video_sent = await send_whatsapp_message(phone_number, success_msg, media_url=final_video_url)
+            
+            if not video_sent:
+                # If video sending fails, send just the text message with URL
+                fallback_msg = (f"🎉 Video generated successfully!\n\n"
+                              f"📝 Prompt: '{prompt}'\n"
+                              f"📐 Settings: {prefs['aspect_ratio']}, {prefs['resolution']}, {prefs['fps']}fps, {prefs['duration']}s\n\n"
+                              f"📹 Video URL: {final_video_url}\n\n"
+                              f"⚠️ Video couldn't be delivered directly. You can download it from the URL above.")
+                await send_whatsapp_message(phone_number, fallback_msg)
             
             # Update conversation state
             conversation_state[phone_number] = {
                 'stage': 'completed',
-                'last_video': video_url
+                'last_video': final_video_url
             }
             
             logger.info(f"Video generated successfully for {phone_number}")
@@ -453,6 +448,29 @@ async def generate_and_download_video(request: Request):
 @app.get("/")
 async def root():
     return {"message": "Peppo AI Video Generation API is running!"}
+
+@app.get("/test-video-url")
+async def test_video_url(url: str):
+    """Test endpoint to validate video URLs"""
+    try:
+        response = requests.head(url, timeout=10, allow_redirects=True)
+        
+        return {
+            "url": url,
+            "status_code": response.status_code,
+            "content_type": response.headers.get('content-type'),
+            "content_length": response.headers.get('content-length'),
+            "size_mb": round(int(response.headers.get('content-length', 0)) / (1024 * 1024), 2) if response.headers.get('content-length') else None,
+            "headers": dict(response.headers),
+            "accessible": response.status_code == 200,
+            "is_video": response.headers.get('content-type', '').startswith('video/')
+        }
+    except Exception as e:
+        return {
+            "url": url,
+            "error": str(e),
+            "accessible": False
+        }
 
 if __name__ == "__main__":
     import uvicorn
