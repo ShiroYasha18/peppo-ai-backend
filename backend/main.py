@@ -242,62 +242,64 @@ async def compress_video(video_url: str, max_size_mb: int = 15):
         return video_url
 
 async def send_whatsapp_message(to: str, message: str, media_url: str = None):
-    """Send WhatsApp message via Twilio (enhanced with media support)"""
+    """Send WhatsApp message via Twilio (enhanced with media support and automatic fallback)"""
     try:
         message_params = {
             'body': message,
-            'from_': 'whatsapp:+14155238886',  # Twilio sandbox number
+            'from_': 'whatsapp:+14155238886',
             'to': f'whatsapp:{to}'
         }
         
         if media_url:
-            logger.info(f"Attempting to send video URL: {media_url}")
+            logger.info(f"📹 Attempting to send video: {media_url}")
             
-            # Try to validate media URL, but don't fail if validation fails
+            # First, try to send as media attachment
             try:
-                # Use a shorter timeout and handle errors gracefully
-                response = requests.head(media_url, timeout=5, allow_redirects=True)
+                # Validate media URL with longer timeout for video files
+                response = requests.head(media_url, timeout=15, allow_redirects=True)
                 
                 if response.status_code == 200:
                     content_type = response.headers.get('content-type', '')
-                    logger.info(f"✅ URL validated: {content_type}")
-                    message_params['media_url'] = [media_url]
-                else:
-                    logger.warning(f"⚠️ URL returned {response.status_code}, but trying to send anyway")
-                    message_params['media_url'] = [media_url]
+                    content_length = response.headers.get('content-length', 'unknown')
+                    logger.info(f"✅ Video validated: {content_type}, {content_length} bytes")
                     
-            except (requests.exceptions.RequestException, requests.exceptions.Timeout) as e:
-                logger.warning(f"⚠️ URL validation failed ({e}), but trying to send anyway")
-                # Still try to send the media - let Twilio handle the validation
-                message_params['media_url'] = [media_url]
+                    # Ensure it's a video file
+                    if 'video' in content_type.lower():
+                        message_params['media_url'] = [media_url]
+                        
+                        # Try to send with media
+                        message = twilio_client.messages.create(**message_params)
+                        logger.info(f"✅ Video sent as media attachment to {to}: {message.sid}")
+                        return True
+                    else:
+                        logger.warning(f"⚠️ Content type is not video: {content_type}, falling back to URL")
+                else:
+                    logger.warning(f"⚠️ Video URL returned {response.status_code}, falling back to URL")
+                    
             except Exception as e:
-                logger.warning(f"⚠️ Unexpected validation error ({e}), but trying to send anyway")
-                message_params['media_url'] = [media_url]
-        
-        # Send the message
-        message = twilio_client.messages.create(**message_params)
-        logger.info(f"✅ Message sent successfully to {to}: {message.sid}")
-        return True
+                logger.warning(f"⚠️ Video media sending failed: {e}, falling back to URL")
+            
+            # Fallback: Send URL as text if media sending failed
+            logger.info(f"📱 Sending video URL as text fallback")
+            fallback_message = f"{message}\n\n📹 Video: {media_url}"
+            
+            fallback_params = {
+                'body': fallback_message,
+                'from_': 'whatsapp:+14155238886',
+                'to': f'whatsapp:{to}'
+            }
+            
+            message = twilio_client.messages.create(**fallback_params)
+            logger.info(f"✅ Video URL sent as text to {to}: {message.sid}")
+            return True
+        else:
+            # Send regular text message
+            message = twilio_client.messages.create(**message_params)
+            logger.info(f"✅ Text message sent to {to}: {message.sid}")
+            return True
         
     except Exception as e:
-        logger.error(f"❌ Failed to send WhatsApp message to {to}: {e}")
-        
-        # If sending with media failed, try sending just the text
-        if media_url:
-            try:
-                logger.info("🔄 Retrying without media...")
-                # Create a shorter fallback message to prevent truncation
-                fallback_params = {
-                    'body': f"{message}\n\n📹 Download: {media_url}",
-                    'from_': 'whatsapp:+14155238886',
-                    'to': f'whatsapp:{to}'
-                }
-                fallback_message = twilio_client.messages.create(**fallback_params)
-                logger.info(f"✅ Fallback message sent: {fallback_message.sid}")
-                return True
-            except Exception as fallback_error:
-                logger.error(f"❌ Fallback message also failed: {fallback_error}")
-        
+        logger.error(f"❌ Failed to send message to {to}: {e}")
         return False
 
 async def upload_file_to_temp_server(file_path: str):
@@ -1069,7 +1071,7 @@ async def handle_generated_video(phone_number: str, prompt: str, video_url: str,
             f"Want another video? Use `{VIDEO_TRIGGER} your new prompt` ✨"
         )
         
-        # Send video
+        # Send video with fallback to URL if needed
         video_sent = await send_whatsapp_message(phone_number, success_msg, media_url=final_video_url)
         
         if not video_sent:
@@ -1078,7 +1080,7 @@ async def handle_generated_video(phone_number: str, prompt: str, video_url: str,
                 f"🎉 **Video Generated Successfully!**\n\n"
                 f"📝 Prompt: '{prompt}'\n"
                 f"📐 Settings: {prefs['aspect_ratio']}, {prefs['resolution']}, {prefs['fps']}fps, {prefs['duration']}s\n\n"
-                f"📹 **Video URL**: {final_video_url}\n\n"
+                f"📹 **Video URL**: \n{final_video_url}\n\n"
                 f"⚠️ Video couldn't be delivered directly. Click the URL above to download."
             )
             await send_whatsapp_message(phone_number, fallback_msg)
