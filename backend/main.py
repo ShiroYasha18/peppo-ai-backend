@@ -353,35 +353,21 @@ async def generate_video_for_whatsapp(phone_number: str, prompt: str):
             replicate_input['duration'] = prefs['duration']
         
         output = replicate.run(
-            "minimax/video-01",
+            "bytedance/seedance-1-pro",
             input=replicate_input
         )
         
-        if output and len(output) > 0:
-            video_url = output[0]
+        if output:
+            # Replicate returns the video URL as a string directly
+            video_url = output
+        else:
+            video_url = None
+        
+        if video_url:
             logger.info(f"🎬 Generated video URL: {video_url}")
             
-            # Optional validation - don't fail if it doesn't work
-            try:
-                response = requests.head(video_url, timeout=3)
-                if response.status_code == 200:
-                    content_type = response.headers.get('content-type', '')
-                    logger.info(f"✅ Original video accessible: {content_type}")
-                else:
-                    logger.info(f"ℹ️ Video URL returned {response.status_code} but proceeding anyway")
-            except Exception as e:
-                logger.info(f"ℹ️ Could not validate video URL ({e}) but proceeding anyway")
-            
-
-
-                final_video_url = video_url
-
-                # Clean up local compressed file
-                try:
-                    if os.path.exists(compressed_video_path):
-                        os.unlink(compressed_video_path)
-                except:
-                    pass
+            # Use the original video URL directly (no compression needed)
+            final_video_url = video_url
             
             # Send success message with video AND URL
             success_msg = (
@@ -408,27 +394,41 @@ async def generate_video_for_whatsapp(phone_number: str, prompt: str):
         else:
             raise Exception("No video output received")
             
-    except Exception as e:
-        logger.error(f"Video generation failed for {phone_number}: {e}")
+        return {
+            "success": True if video_url else False,
+            "video_url": video_url
+        }
         
-        # Send error message
-        error_msg = ("😔 Sorry, I couldn't generate your video right now.\n\n"
-                    "This could be due to:\n"
-                    "• High server load\n"
-                    "• Complex prompt requirements\n"
-                    "• Temporary service issues\n\n"
-                    "Please try again with a simpler prompt, or wait a few minutes and retry! 🔄")
+    except Exception as e:
+        logger.error(f"❌ Video generation failed for {phone_number}: {e}")
+        
+        # Send error message to user
+        error_msg = (
+            f"😔 **Oops! Video generation failed**\n\n"
+            f"📝 Prompt: '{prompt}'\n"
+            f"❌ Error: {str(e)}\n\n"
+            f"Please try again with `{VIDEO_TRIGGER} your prompt` 🔄"
+        )
         
         await send_whatsapp_message(phone_number, error_msg)
         
-        # Reset conversation state
-        conversation_state[phone_number] = {'stage': 'initial'}
+        # Update conversation state
+        conversation_state[phone_number] = {
+            'stage': 'error',
+            'error': str(e),
+            'failed_at': asyncio.get_event_loop().time()
+        }
+        
+        return {
+            "success": False,
+            "error": str(e)
+        }
 
 @app.post("/generate")
 async def generate_video(request: VideoGenerationRequest):
     try:
         output = replicate.run(
-            "minimax/video-01",
+            "bytedance/seedance-1-pro",
             input={
                 "prompt": request.prompt,
                 "prompt_optimizer": True
@@ -436,7 +436,7 @@ async def generate_video(request: VideoGenerationRequest):
         )
         return {
             "success": True,
-            "video_url": output[0] if output else None
+            "video_url": output
         }
     except Exception as e:
         logger.error(f"Video generation error: {e}")
@@ -455,7 +455,7 @@ async def generate_and_download_video(request: Request):
             raise HTTPException(status_code=400, detail="Prompt is required")
         
         output = replicate.run(
-            "minimax/video-01",
+            "bytedance/seedance-1-pro",
             input={
                 "prompt": prompt,
                 "prompt_optimizer": True
@@ -463,7 +463,7 @@ async def generate_and_download_video(request: Request):
         )
         
         if output and len(output) > 0:
-            video_url = output[0]
+            video_url = output
             
             with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as temp_file:
                 response = requests.get(video_url)
@@ -614,7 +614,7 @@ async def handle_video_generation(phone_number: str, prompt: str):
         output = replicate.run("bytedance/seedance-1-pro", input=replicate_input)
         
         if output and len(output) > 0:
-            video_url = output[0]
+            video_url = output
             logger.info(f"✅ Video generated: {video_url}")
             
             # Handle the generated video
