@@ -82,32 +82,55 @@ async def moderate_content(text: str):
 
 # Settings parser function
 def parse_settings_command(message: str):
-    """Parse settings commands like '/settings ratio 16:9'"""
-    parts = message.lower().split()
-    if len(parts) < 3:
+    """Parse settings commands like '/settings ratio 16:9' or '/settings resolution=480p fps=24'"""
+    parts = message.split()
+    if len(parts) < 2:
         return None
     
-    setting_type = parts[1]
-    setting_value = parts[2]
+    # Remove '/settings' from the beginning
+    settings_parts = parts[1:]
+    updates = {}
     
-    if setting_type == 'ratio' and setting_value in ['16:9', '9:16', '1:1', '4:3']:
-        return {'aspect_ratio': setting_value}
-    elif setting_type == 'resolution' and setting_value in ['480p', '720p', '1080p']:
-        return {'resolution': setting_value}
-    elif setting_type == 'fps' and setting_value.isdigit():
-        fps_val = int(setting_value)
-        if fps_val in [24, 30, 60]:
-            return {'fps': fps_val}
-    elif setting_type == 'duration' and setting_value.isdigit():
-        duration_val = int(setting_value)
-        if duration_val in [3, 5, 10]:
-            return {'duration': duration_val}
-    elif setting_type == 'time' and setting_value.isdigit():  # Add 'time' as alias for duration
-        duration_val = int(setting_value)
-        if duration_val in [3, 5, 10]:
-            return {'duration': duration_val}
+    for part in settings_parts:
+        # Handle key=value format
+        if '=' in part:
+            key, value = part.split('=', 1)
+            key = key.lower().strip()
+            value = value.strip()
+            
+            if key in ['aspect_ratio', 'ratio'] and value in ['16:9', '9:16', '1:1', '4:3']:
+                updates['aspect_ratio'] = value
+            elif key == 'resolution' and value in ['480p', '720p', '1080p']:
+                updates['resolution'] = value
+            elif key == 'fps' and value.isdigit():
+                fps_val = int(value)
+                if fps_val in [24, 30, 60]:
+                    updates['fps'] = fps_val
+            elif key in ['duration', 'time'] and value.isdigit():
+                duration_val = int(value)
+                if duration_val in [3, 5, 10]:
+                    updates['duration'] = duration_val
+        
+        # Handle old format: '/settings ratio 16:9'
+        elif len(settings_parts) >= 2:
+            setting_type = settings_parts[0].lower()
+            setting_value = settings_parts[1]
+            
+            if setting_type in ['ratio', 'aspect_ratio'] and setting_value in ['16:9', '9:16', '1:1', '4:3']:
+                return {'aspect_ratio': setting_value}
+            elif setting_type == 'resolution' and setting_value in ['480p', '720p', '1080p']:
+                return {'resolution': setting_value}
+            elif setting_type == 'fps' and setting_value.isdigit():
+                fps_val = int(setting_value)
+                if fps_val in [24, 30, 60]:
+                    return {'fps': fps_val}
+            elif setting_type in ['duration', 'time'] and setting_value.isdigit():
+                duration_val = int(setting_value)
+                if duration_val in [3, 5, 10]:
+                    return {'duration': duration_val}
+            break
     
-    return None
+    return updates if updates else None
 
 # Simplified video compression (placeholder - no actual compression for now)
 async def compress_video(video_url: str, max_size_mb: int = 15):
