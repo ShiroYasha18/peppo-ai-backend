@@ -768,17 +768,3 @@ async def whatsapp_webhook(request: Request):
         # Always return valid TwiML even on error
         resp = MessagingResponse()
         return Response(content=str(resp), media_type="application/xml")
-        
-        logger.info(f"📨 Webhook received from {from_number}: {message_body}")
-        
-        # Handle the message using the new system
-        success = await handle_incoming_message(from_number, message_body)
-        
-        if success:
-            return {"status": "success", "message": "Message processed"}
-        else:
-            return {"status": "error", "message": "Message processing failed"}
-            
-    except Exception as e:
-        logger.error(f"❌ Webhook error: {e}")
-        return {"status": "error", "message": str(e)}
