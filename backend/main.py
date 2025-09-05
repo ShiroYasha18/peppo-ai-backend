@@ -4,7 +4,7 @@ import requests
 import replicate
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from dotenv import load_dotenv
 from pydantic import BaseModel
 from typing import Optional
@@ -737,10 +737,9 @@ async def handle_settings_command(phone_number: str, message_body: str):
             "❌ Settings update failed. Please try again.")
         return False
 
-# Update the main webhook to use the new message handler
 @app.post("/webhook")
 async def whatsapp_webhook(request: Request):
-    """Enhanced Twilio webhook for WhatsApp messages"""
+    """Enhanced Twilio webhook for WhatsApp messages - returns proper TwiML"""
     try:
         form_data = await request.form()
         
@@ -748,9 +747,27 @@ async def whatsapp_webhook(request: Request):
         from_number = form_data.get('From', '').replace('whatsapp:', '')
         message_body = form_data.get('Body', '').strip()
         
+        logger.info(f"📨 Webhook received from {from_number}: {message_body}")
+        
+        # Create TwiML response
+        resp = MessagingResponse()
+        
         if not from_number or not message_body:
             logger.warning("❌ Invalid webhook data received")
-            return {"status": "error", "message": "Invalid data"}
+            # Return empty TwiML response
+            return Response(content=str(resp), media_type="application/xml")
+        
+        # Handle the message asynchronously (don't wait for completion)
+        asyncio.create_task(handle_incoming_message(from_number, message_body))
+        
+        # Return empty TwiML response immediately (Twilio requirement)
+        return Response(content=str(resp), media_type="application/xml")
+            
+    except Exception as e:
+        logger.error(f"❌ Webhook error: {e}")
+        # Always return valid TwiML even on error
+        resp = MessagingResponse()
+        return Response(content=str(resp), media_type="application/xml")
         
         logger.info(f"📨 Webhook received from {from_number}: {message_body}")
         
