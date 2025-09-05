@@ -372,21 +372,10 @@ async def generate_video_for_whatsapp(phone_number: str, prompt: str):
             except Exception as e:
                 logger.info(f"ℹ️ Could not validate video URL ({e}) but proceeding anyway")
             
-            # Compress video to ensure it's under 16MB
-            compressed_video_path = await compress_video(video_url, max_size_mb=15)
-            
-            # Try to upload compressed video to accessible URL
-            final_video_url = video_url  # Default to original
-            
-            if compressed_video_path and compressed_video_path != video_url:
-                # Upload compressed file to temporary server
-                uploaded_url = await upload_file_to_temp_server(compressed_video_path)
-                if uploaded_url:
-                    final_video_url = uploaded_url
-                else:
-                    # If upload fails, use original URL but log the issue
-                    logger.warning("Using original video URL - compression upload failed")
-                
+
+
+                final_video_url = video_url
+
                 # Clean up local compressed file
                 try:
                     if os.path.exists(compressed_video_path):
