@@ -53,9 +53,9 @@ user_preferences = {}
 
 # Default video settings
 DEFAULT_SETTINGS = {
-    'aspect_ratio': '16:9',
-    'resolution': '720p',
-    'fps': 30,
+    'aspect_ratio': '1:1',
+    'resolution': '480p',
+    'fps': 24,
     'duration': 5
 }
 
@@ -64,8 +64,8 @@ class VideoGenerationRequest(BaseModel):
     prompt: str
     fps: Optional[int] = 24
     duration: Optional[int] = 5
-    resolution: Optional[str] = "480"
-    aspect_ratio: Optional[str] = "16:9"
+    resolution: Optional[str] = "480p"
+    aspect_ratio: Optional[str] = "1:1"
 
 # Content moderation function (simplified without OpenAI for now)
 async def moderate_content(text: str):
@@ -286,8 +286,9 @@ async def send_whatsapp_message(to: str, message: str, media_url: str = None):
         if media_url:
             try:
                 logger.info("🔄 Retrying without media...")
+                # Create a shorter fallback message to prevent truncation
                 fallback_params = {
-                    'body': f"{message}\n\n📹 Video URL: {media_url}",
+                    'body': f"{message}\n\n📹 Download: {media_url}",
                     'from_': 'whatsapp:+14155238886',
                     'to': f'whatsapp:{to}'
                 }
@@ -304,16 +305,13 @@ async def upload_file_to_temp_server(file_path: str):
     try:
         # Simple file server endpoint on your backend
         filename = os.path.basename(file_path)
-        # Copy file to a static directory that can be served
-        static_dir = "/tmp/videos"  # or create a 'static' folder in your project
-        os.makedirs(static_dir, exist_ok=True)
-        
-        static_path = os.path.join(static_dir, filename)
+        # Copy file to the /tmp directory that's already mounted as static
+        static_path = os.path.join("/tmp", filename)
         import shutil
         shutil.copy2(file_path, static_path)
         
         # Return the public URL where the file can be accessed
-        public_url = f"https://peppo-ai-backend-1.onrender.com/static/videos/{filename}"
+        public_url = f"https://peppo-ai-backend-1.onrender.com/static/{filename}"
         logger.info(f"📤 File uploaded to: {public_url}")
         return public_url
         
@@ -600,23 +598,17 @@ async def handle_video_generation(phone_number: str, prompt: str):
             conversation_state[phone_number] = {'stage': 'rejected'}
             return False
         
-        # Get user preferences
+        # Get user preferences (for display purposes only)
         prefs = user_preferences.get(phone_number, DEFAULT_SETTINGS)
-        logger.info(f"📐 Using settings: {prefs}")
+        logger.info(f"📐 User settings (display only): {prefs}")
         
-        # Generate video using Replicate
+        # Generate video using Replicate - ONLY with supported parameters
         replicate_input = {
             "prompt": prompt,
-            "prompt_optimizer": True,
-            "aspect_ratio": prefs['aspect_ratio'],
-            "fps": prefs['fps']
+            "prompt_optimizer": True
         }
         
-        # Add duration if supported
-        if 'duration' in prefs:
-            replicate_input['duration'] = prefs['duration']
-        
-        logger.info(f"🔄 Calling Replicate with: {replicate_input}")
+        logger.info(f"🔄 Calling Replicate with supported parameters: {replicate_input}")
         output = replicate.run("minimax/video-01", input=replicate_input)
         
         if output and len(output) > 0:
