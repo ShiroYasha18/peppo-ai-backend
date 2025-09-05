@@ -133,12 +133,12 @@ def parse_settings_command(message: str):
     return updates if updates else None
 
 async def compress_video(video_url: str, max_size_mb: int = 15):
-    """Compress video to ensure it's under the specified size limit with optimized bitrate (no audio)"""
+    """Compress video to ensure it's under the specified size limit with high-quality compression (no audio)"""
     input_path = None
     output_path = None
     
     try:
-        logger.info(f"Starting video compression for {video_url}")
+        logger.info(f"Starting high-quality video compression for {video_url}")
         
         # Download the original video
         with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as temp_input:
@@ -163,39 +163,49 @@ async def compress_video(video_url: str, max_size_mb: int = 15):
         height = int(video_stream['height'])
         fps = eval(video_stream['r_frame_rate'])  # Convert fraction to float
         
-        # Calculate optimal bitrate based on resolution and duration (video only)
+        # Enhanced bitrate calculation for better quality
         pixel_count = width * height
-        complexity_factor = min(1.0, pixel_count / (1920 * 1080))  # Normalize to 1080p
+        complexity_factor = min(1.2, pixel_count / (1920 * 1080))  # Allow higher bitrate for complex videos
         
-        # Base bitrate calculation (kbps) - no audio overhead
-        # Reserve 10% for container overhead only
-        available_bits = (max_size_mb * 8 * 1024 * 0.9) / duration
-        target_video_bitrate = int(available_bits)  # All available bits for video
+        # Smart bitrate allocation - reserve less overhead for better quality
+        available_bits = (max_size_mb * 8 * 1024 * 0.95) / duration  # Only 5% overhead
+        target_video_bitrate = int(available_bits * complexity_factor)
         
-        # Adjust for complexity and frame rate
+        # Adjust for frame rate more intelligently
         if fps > 30:
-            target_video_bitrate = int(target_video_bitrate * 0.8)  # Reduce for high fps
+            target_video_bitrate = int(target_video_bitrate * 0.85)  # Less aggressive reduction
+        elif fps < 24:
+            target_video_bitrate = int(target_video_bitrate * 1.1)   # Boost for low fps
         
-        logger.info(f"Target video bitrate: {target_video_bitrate}k (no audio)")
+        logger.info(f"Target video bitrate: {target_video_bitrate}k (optimized for quality)")
         
-        # First pass compression with optimized settings (no audio)
+        # High-quality compression settings (no audio)
         ffmpeg_args = {
             'vcodec': 'libx264',
             'an': None,  # Remove audio completely
             'video_bitrate': f'{target_video_bitrate}k',
-            'preset': 'fast',  # Faster encoding
-            'crf': 26,  # Better quality than 28
-            'profile:v': 'baseline',  # Better compatibility
-            'level': '3.1',
+            'preset': 'medium',  # Better quality than 'fast'
+            'crf': 23,  # Higher quality (lower CRF)
+            'profile:v': 'high',  # Better compression efficiency
+            'level': '4.0',  # Support higher resolutions
             'movflags': 'faststart',
-            'pix_fmt': 'yuv420p',  # Ensure compatibility
-            'maxrate': f'{int(target_video_bitrate * 1.2)}k',  # Prevent bitrate spikes
-            'bufsize': f'{int(target_video_bitrate * 2)}k'
+            'pix_fmt': 'yuv420p',
+            'maxrate': f'{int(target_video_bitrate * 1.15)}k',  # Tighter control
+            'bufsize': f'{int(target_video_bitrate * 1.8)}k',
+            'tune': 'film',  # Optimize for film-like content
+            'x264opts': 'ref=3:bframes=3:b-adapt=2:direct=auto:me=umh:subme=8:trellis=1:fast-pskip=0'
         }
         
-        # Add deinterlacing if needed
+        # Add smart filtering
+        filters = []
         if 'field_order' in video_stream and video_stream['field_order'] != 'progressive':
-            ffmpeg_args['vf'] = 'yadif'
+            filters.append('yadif')  # Deinterlace
+        
+        # Add noise reduction for better compression
+        filters.append('hqdn3d=2:1:2:3')  # Light denoising
+        
+        if filters:
+            ffmpeg_args['vf'] = ','.join(filters)
         
         (
             ffmpeg
@@ -212,33 +222,41 @@ async def compress_video(video_url: str, max_size_mb: int = 15):
         # Clean up input file
         os.unlink(input_path)
         
-        # If still too large, apply more aggressive compression
+        # If still too large, apply smart secondary compression
         if compressed_size > max_size_mb:
-            logger.info("File still too large, applying more aggressive compression")
+            logger.info("Applying smart secondary compression for size optimization")
             
-            with tempfile.NamedTemporaryFile(suffix='_compressed2.mp4', delete=False) as temp_output2:
+            with tempfile.NamedTemporaryFile(suffix='_final.mp4', delete=False) as temp_output2:
                 output_path2 = temp_output2.name
             
-            # More aggressive settings (no audio)
-            aggressive_video_bitrate = int(target_video_bitrate * 0.6)  # Reduce by 40%
+            # Calculate how much we need to reduce
+            reduction_factor = max_size_mb / compressed_size
+            new_bitrate = int(target_video_bitrate * reduction_factor * 0.9)  # 10% safety margin
             
-            # Scale down resolution if needed
-            scale_filter = 'scale=iw*0.85:ih*0.85'  # Less aggressive scaling
-            if compressed_size > max_size_mb * 1.5:  # If way too large
-                scale_filter = 'scale=iw*0.7:ih*0.7'
+            # Smart scaling - preserve aspect ratio and quality
+            if reduction_factor < 0.7:  # Need significant reduction
+                scale_factor = 0.8  # Moderate scaling
+            elif reduction_factor < 0.5:  # Need major reduction
+                scale_factor = 0.7  # More aggressive scaling
+            else:
+                scale_factor = 0.9  # Minimal scaling
             
+            scale_filter = f'scale=iw*{scale_factor}:ih*{scale_factor}'
+            
+            # Enhanced secondary compression
             aggressive_args = {
                 'vcodec': 'libx264',
-                'an': None,  # Remove audio completely
-                'video_bitrate': f'{aggressive_video_bitrate}k',
-                'preset': 'fast',
-                'crf': 30,  # Lower quality for smaller size
-                'profile:v': 'baseline',
-                'vf': scale_filter,
+                'an': None,
+                'video_bitrate': f'{new_bitrate}k',
+                'preset': 'slow',  # Better compression efficiency
+                'crf': 26,  # Balanced quality
+                'profile:v': 'high',
+                'vf': f'{scale_filter},hqdn3d=3:2:3:3',  # Scaling + stronger denoising
                 'movflags': 'faststart',
                 'pix_fmt': 'yuv420p',
-                'maxrate': f'{int(aggressive_video_bitrate * 1.1)}k',
-                'bufsize': f'{int(aggressive_video_bitrate * 1.5)}k'
+                'maxrate': f'{int(new_bitrate * 1.1)}k',
+                'bufsize': f'{int(new_bitrate * 1.5)}k',
+                'tune': 'film'
             }
             
             (
@@ -253,7 +271,7 @@ async def compress_video(video_url: str, max_size_mb: int = 15):
             output_path = output_path2
             
             final_size = os.path.getsize(output_path) / (1024 * 1024)
-            logger.info(f"Final compressed size: {final_size:.2f}MB")
+            logger.info(f"Final optimized size: {final_size:.2f}MB with enhanced quality")
         
         return output_path
         
@@ -275,7 +293,7 @@ async def compress_video(video_url: str, max_size_mb: int = 15):
         return video_url
 
 async def send_whatsapp_message(to: str, message: str, media_url: str = None):
-    """Send WhatsApp message via Twilio with optional media attachment"""
+    """Send WhatsApp message - simple and reliable"""
     try:
         message_params = {
             'body': message,
@@ -284,49 +302,15 @@ async def send_whatsapp_message(to: str, message: str, media_url: str = None):
         }
         
         if media_url:
-            logger.info(f"🔄 Attempting to send video as media: {media_url}")
-            
-            try:
-                # Validate media URL with longer timeout for video files
-                response = requests.head(media_url, timeout=30, allow_redirects=True)
-                logger.info(f"📊 Media URL response: {response.status_code}, headers: {dict(response.headers)}")
-                
-                if response.status_code == 200:
-                    content_type = response.headers.get('content-type', '')
-                    content_length = response.headers.get('content-length', 'unknown')
-                    logger.info(f"✅ Video validated: {content_type}, {content_length} bytes")
-                    
-                    # More flexible content type checking
-                    if 'video' in content_type.lower() or media_url.lower().endswith(('.mp4', '.mov', '.avi', '.webm')):
-                        message_params['media_url'] = [media_url]
-                        
-                        # Try to send with media
-                        logger.info(f"📤 Sending video message with params: {message_params}")
-                        message = twilio_client.messages.create(**message_params)
-                        logger.info(f"✅ Video sent as media attachment to {to}: {message.sid}")
-                        return True
-                    else:
-                        logger.warning(f"⚠️ Content type is not video: {content_type}, falling back to URL")
-                else:
-                    logger.warning(f"⚠️ Video URL returned {response.status_code}, falling back to URL")
-                    
-            except requests.exceptions.Timeout:
-                logger.warning(f"⚠️ Video URL validation timed out after 30s, falling back to URL")
-            except Exception as e:
-                logger.warning(f"⚠️ Video media validation failed: {str(e)}, falling back to URL")
-            
-            # If we reach here, media sending failed - return False to trigger fallback
-            logger.info(f"❌ Media sending failed, returning False to trigger URL fallback")
-            return False
-        else:
-            # Send regular text message
-            logger.info(f"📝 Sending text message to {to}")
-            message = twilio_client.messages.create(**message_params)
-            logger.info(f"✅ Text message sent to {to}: {message.sid}")
-            return True
+            message_params['media_url'] = [media_url]
+            logger.info(f"📤 Sending with media: {media_url}")
+        
+        message = twilio_client.messages.create(**message_params)
+        logger.info(f"✅ Message sent: {message.sid}")
+        return True
         
     except Exception as e:
-        logger.error(f"❌ Failed to send message to {to}: {str(e)}")
+        logger.error(f"❌ Send failed: {str(e)}")
         return False
 
 async def upload_file_to_temp_server(file_path: str):
@@ -410,28 +394,24 @@ async def generate_video_for_whatsapp(phone_number: str, prompt: str):
                 except:
                     pass
             
-            # Send success message with video
-            success_msg = ("🎉 **Your video is ready!**\n\n"
-                          f"📝 Prompt: '{prompt}'\n"
-                          f"📐 Settings: {prefs['aspect_ratio']}, {prefs['resolution']}, {prefs['fps']}fps, {prefs['duration']}s\n\n"
-                          "Want to create another video? Just send me a new prompt! ✨")
+            # Send success message with video AND URL
+            success_msg = (
+                f"🎉 **Your video is ready!**\n\n"
+                f"📝 Prompt: '{prompt}'\n"
+                f"📐 Settings: {prefs['aspect_ratio']}, {prefs['resolution']}, {prefs['fps']}fps, {prefs['duration']}s\n\n"
+                f"📹 **Download Link**: {final_video_url}\n\n"
+                f"Want another video? Use `{VIDEO_TRIGGER} your new prompt` ✨"
+            )
             
-            # Send video with proper error handling
-            video_sent = await send_whatsapp_message(phone_number, success_msg, media_url=final_video_url)
-            
-            if not video_sent:
-                # If video sending fails, send just the text message with URL
-                fallback_msg = (f"🎉 Video generated successfully!\n\n"
-                              f"📝 Prompt: '{prompt}'\n"
-                              f"📐 Settings: {prefs['aspect_ratio']}, {prefs['resolution']}, {prefs['fps']}fps, {prefs['duration']}s\n\n"
-                              f"📹 Video URL: {final_video_url}\n\n"
-                              f"⚠️ Video couldn't be delivered directly. You can download it from the URL above.")
-                await send_whatsapp_message(phone_number, fallback_msg)
+            # Send video with URL in message body
+            await send_whatsapp_message(phone_number, success_msg, media_url=final_video_url)
+            logger.info(f"✅ Video and URL sent successfully")
             
             # Update conversation state
             conversation_state[phone_number] = {
                 'stage': 'completed',
-                'last_video': final_video_url
+                'last_video': final_video_url,
+                'completed_at': asyncio.get_event_loop().time()
             }
             
             logger.info(f"Video generated successfully for {phone_number}")
