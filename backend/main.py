@@ -272,26 +272,16 @@ async def send_whatsapp_message(to: str, message: str, media_url: str = None):
                         logger.info(f"✅ Video sent as media attachment to {to}: {message.sid}")
                         return True
                     else:
-                        logger.warning(f"⚠️ Content type is not video: {content_type}, falling back to URL")
+                        logger.warning(f"⚠️ Content type is not video: {content_type}, media sending failed")
                 else:
-                    logger.warning(f"⚠️ Video URL returned {response.status_code}, falling back to URL")
+                    logger.warning(f"⚠️ Video URL returned {response.status_code}, media sending failed")
                     
             except Exception as e:
-                logger.warning(f"⚠️ Video media sending failed: {e}, falling back to URL")
+                logger.warning(f"⚠️ Video media sending failed: {e}")
             
-            # Fallback: Send URL as text if media sending failed
-            logger.info(f"📱 Sending video URL as text fallback")
-            fallback_message = f"{message}\n\n📹 Video: {media_url}"
-            
-            fallback_params = {
-                'body': fallback_message,
-                'from_': 'whatsapp:+14155238886',
-                'to': f'whatsapp:{to}'
-            }
-            
-            message = twilio_client.messages.create(**fallback_params)
-            logger.info(f"✅ Video URL sent as text to {to}: {message.sid}")
-            return True
+            # If we reach here, media sending failed
+            logger.info(f"❌ Media sending failed, returning False to trigger fallback")
+            return False
         else:
             # Send regular text message
             message = twilio_client.messages.create(**message_params)
