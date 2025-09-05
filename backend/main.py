@@ -135,6 +135,9 @@ def parse_settings_command(message: str):
 # Simplified video compression (placeholder - no actual compression for now)
 async def compress_video(video_url: str, max_size_mb: int = 15):
     """Compress video to ensure it's under the specified size limit"""
+    input_path = None
+    output_path = None
+    
     try:
         logger.info(f"Starting video compression for {video_url}")
         
@@ -224,10 +227,14 @@ async def compress_video(video_url: str, max_size_mb: int = 15):
     except Exception as e:
         logger.error(f"Video compression failed: {e}")
         # Clean up any temp files
-        for path in [input_path, output_path]:
+        if input_path and os.path.exists(input_path):
             try:
-                if 'path' in locals() and os.path.exists(path):
-                    os.unlink(path)
+                os.unlink(input_path)
+            except:
+                pass
+        if output_path and os.path.exists(output_path):
+            try:
+                os.unlink(output_path)
             except:
                 pass
         
