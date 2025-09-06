@@ -57,16 +57,49 @@ TWILIO_AUTH_TOKEN=your_twilio_token
 TWILIO_PHONE_NUMBER=whatsapp:+14155238886  # default number 
 
 
-PlainText
 
 
 
-## Usage### Starting the Server```bashcd backenduvicorn main:app --reload --host 0.0.0.0 --port 8000```### WhatsApp Commands- **Generate Video**: Send any text prompt to generate a video- **/settings**: Configure video parameters  - Example: `/settings ratio=16:9   resolution=720p fps=24 duration=5`## API Endpoints### POST /whatsapp/webhookReceives incoming WhatsApp messages via Twilio.**Request Body:**
-Form data with WhatsApp message content
 
-PlainText
+## Usage
 
+### Starting the Server
 
+```bash
+cd backend
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
+```
 
-**Response:**TwiML response for Twilio### GET /Health check endpoint.**Response:**```json{  "message": "WhatsApp Video Generation   API is running!"}```### GET /queue/statsGet current queue statistics.**Response:**```json{  "queue_size": "integer",  "active_tasks": "integer"}```## DeploymentThe project is configured for deployment on Render.com:```yamlservices:  - type: web    name: peppo-ai-backend    env: python    buildCommand: "cd backend && pip     install -r requirements.txt"    startCommand: "cd backend && uvicorn     main:app --host 0.0.0.0 --port $PORT"    envVars:      - key: REPLICATE_API_TOKEN        sync: false      - key: TWILIO_ACCOUNT_SID        sync: false      - key: TWILIO_AUTH_TOKEN        sync: false      - key: TWILIO_PHONE_NUMBER        sync: false      - key: OPENAI_API_KEY        sync: false      - key: TEMP_SERVER_URL        sync: false```## Troubleshooting### Common Issues & Solutions#### 🔴 "REPLICATE_API_TOKEN not found"**Solution:**Check your .env file exists and has the correct token in the backend directory.#### 🔴 WhatsApp Message Delivery Fails**Solutions:**- Verify your Twilio credentials are correct- Ensure the temporary server URL is accessible from the internet- Check that video files are properly compressed to under 16MB#### 🔴 Video Generation Fails**Solutions:**- Verify your Replicate API token has sufficient credits- Check that the prompt meets minimum requirements- Try simpler prompts if complex ones fail## LicenseThis project is licensed under the MIT License.## Author**Ayraf** - *Full Stack Developer*- GitHub: [@ayrafraihan](https://github.com/ayrafraihan)- Made with ❤️ and lots of ☕
+### WhatsApp Commands
+
+- **Generate Video**: Send any text prompt to generate a video
+- **/settings**: Configure video parameters  
+  - Example: `/settings ratio=16:9   resolution=720p fps=24 duration=5`
+
+## API Endpoints
+### POST /webhook
+This endpoint receives incoming WhatsApp messages via Twilio's webhook system.
+
+Request:
+
+- Receives form data from Twilio containing WhatsApp message details
+- Key parameters:
+  - From : The sender's WhatsApp number (format: whatsapp:+1234567890 )
+  - Body : The text content of the message
+Processing:
+
+- Extracts the phone number and message content
+- Queues the message for processing using the request queue system
+- Handles various message types:
+  - Text prompts prefixed with !generate to create videos
+  - Settings commands starting with /settings
+  - Help requests with /help
+  - Regular messages (responds with welcome instructions)
+Response:
+
+- Returns a TwiML (Twilio Markup Language) response
+- Content-Type: application/xml
+- This response is required by Twilio to acknowledge receipt of the webhook
+
+ Made with ❤️ and lots of ☕
 
