@@ -18,6 +18,7 @@ import logging
 import urllib.request
 from urllib.parse import urlparse
 import ffmpeg
+import random
 
 # Load .env from current directory
 load_dotenv()
@@ -692,6 +693,18 @@ async def handle_video_generation(phone_number: str, prompt: str):
         # Get user preferences
         prefs = user_preferences.get(phone_number, DEFAULT_SETTINGS)
         logger.info(f"📐 Using settings: {prefs}")
+        
+        # Send a funny waiting message after a short delay
+        await asyncio.sleep(5)  # Wait 5 seconds before sending the funny message
+        funny_msg = (
+            f"🎭 **Your video is in the queue!**\n\n"
+            f"🧙‍♂️ Our AI wizards are hard at work creating your masterpiece...\n"
+            f"🎬 Prompt: '{prompt}'\n\n"
+            f"🔄 Position in queue: {request_queue.queue.qsize() + 1}\n"
+            f"⏳ Estimated time remaining: {random.randint(10, 30)} seconds\n\n"
+            f"Did you know? Each video is uniquely crafted just for you! 🌟"
+        )
+        await send_whatsapp_message(phone_number, funny_msg)
         
         # Generate video using Replicate - bytedance/seedance-1-pro supports all parameters
         replicate_input = {
