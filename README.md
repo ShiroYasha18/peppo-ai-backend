@@ -40,8 +40,9 @@ Peppo is a WhatsApp bot that leverages AI to generate videos from text prompts. 
 
 ```bash
 # Clone the repository
-git clone <>
+git clone <https://github.com/ShiroYasha18/peppo-ai-backend>
 cd peppo
+git checkout round-2
 
 # Install dependencies
 cd backend
@@ -101,5 +102,5 @@ Response:
 - Content-Type: application/xml
 - This response is required by Twilio to acknowledge receipt of the webhook
 
- Made with ❤️ and lots of ☕
+ Made with ❤️ by Ayraf and lots of ☕
 
